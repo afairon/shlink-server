@@ -1,7 +1,11 @@
 DIR := bin
+BIN := shlink
 VERSION := v1.0.0
 PLATFORMS := darwin linux freebsd windows
 os = $(word 1, $@)
+
+GOVERSION := `go version | cut -d ' ' -f 3`
+GOPLATFORM := `go version | cut -d ' ' -f 4`
 
 ARCH ?= amd64
 
@@ -31,9 +35,10 @@ bench:
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): generate fmt
-	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w" -o $(DIR)/$(ARCH)/short-$(VERSION)-$(os)-$(ARCH)
+	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -X main.version=$(VERSION) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
 
 .PHONY: clean
 clean:
 	rm -rf bin/
-	rm -f models/*_ffjson.go
+	rm -rf models/ffjson*
+	rm -rf models/*_ffjson.go

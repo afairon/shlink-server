@@ -36,6 +36,16 @@ func TestGenerateNextID(t *testing.T) {
 		t.Error("Expect ID to be aa")
 	}
 
+	code, err = GenerateNextID("aa")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if code != "ab" {
+		fmt.Printf("ID: %s\n", code)
+		t.Error("Expect ID to be ab")
+	}
+
 	code, err = GenerateNextID("a9")
 	if err != nil {
 		t.Error(err)

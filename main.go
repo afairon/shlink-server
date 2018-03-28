@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/text/language"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
-	"short/models"
-	"short/pkg/genid"
-	utils "short/utils"
+	config "shlink-server/conf"
+	"shlink-server/models"
+	"shlink-server/pkg/genid"
+	utils "shlink-server/utils"
 
-	"github.com/avct/uasurfer"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 	"github.com/go-zoo/bone"
@@ -23,20 +24,32 @@ import (
 	"go.uber.org/zap"
 )
 
+var conf config.Config
+
 var logger *zap.Logger
 var session *mgo.Session
 
 var err error
 
-var server = utils.Config.Server
-var database = utils.Config.Database
+var version string
+var goVersion string
+var goPlatform string
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
+	lg, _ := language.Parse(r.Header.Get("Accept-Language"))
 
-	/*t, err := template.New("index.html").Funcs(template.FuncMap{
-		"gettext": func(input string) string {
-			return gotext.Get(input)
+	message := map[string]map[string]string{
+		"en": {
+			"greet": "It's rendering",
+		},
+		"fr": {
+			"greet": "Affichage de",
+		},
+	}
+	t, err := template.New("index.html").Funcs(template.FuncMap{
+		"T": func(key string) string {
+			return message[lg.String()][key]
 		},
 	}).ParseFiles("public/index.html", "public/head.html")
 	if err != nil {
@@ -46,194 +59,226 @@ func index(w http.ResponseWriter, r *http.Request) {
 	err = t.Execute(w, nil)
 	if err != nil {
 		logger.Error(err.Error())
-	}*/
-	t, err := template.New("index").Parse(`
-		<!DOCTYPE html>
-<html lang="en">
-<body>
-    <h1>It's working! Yay!</h1>
-</body>
-</html>
-	`)
-	if err != nil {
-		logger.Error(err.Error())
-	}
-
-	if err = t.Execute(w, nil); err != nil {
-		logger.Error(err.Error())
 	}
 }
 
 func redirectFull(w http.ResponseWriter, r *http.Request) {
+	id := bone.GetValue(r, "id")
+
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	id := bone.GetValue(r, "id")
+	db := newSession.DB(conf.Database.DB)
 
-	// User agent
-	ua := uasurfer.Parse(r.Header.Get("User-Agent"))
-
-	var result models.URL
-	err := newSession.DB("short").C("UrlCollection").Find(bson.M{"id": id}).One(&result)
+	//var result models.URL
+	result := models.URL{}
+	err := db.C("url").Find(bson.M{"id": id}).One(&result)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI))
 	}
 
 	if result.LongURL != "" {
-		logger.Info("Access: "+result.LongURL, zap.String("os", ua.OS.Name.String()[2:]), zap.String("browser", ua.Browser.Name.String()[7:]), zap.String("remote-ip", r.RemoteAddr))
-		http.Redirect(w, r, result.LongURL, 302)
-
-		/*go func() {
-			routineSession := session.Copy()
-			defer routineSession.Close()
-
-			_, err := routineSession.DB("short").C("UrlStatsCollection").Upsert(bson.M{"id": result.ID}, bson.M{"$set": bson.M{"id": result.ID}, "$inc": bson.M{"click": 1}})
-			if err != nil {
-				logger.Error(err.Error())
-			}
-		}()*/
+		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		http.Redirect(w, r, result.LongURL, 301)
 
 		return
 	}
-	fmt.Fprintf(w, "Not Found")
-}
-
-func delete(w http.ResponseWriter, r *http.Request) {
-	newSession := session.Copy()
-	defer func() {
-		newSession.Close()
-
-		var urlCopy models.URL
-		urlCopy.Success = true
-		json, _ := ffjson.Marshal(&urlCopy)
-		w.Write(json)
-	}()
-
-	id := bone.GetValue(r, "id")
-
-	db := newSession.DB("short")
-
-	var urlCopy models.URL
-
-	err := db.C("UrlCollection").Remove(bson.M{"id": id})
-	if err != nil {
-		logger.Error(err.Error())
-
-		urlCopy.Success = false
-		urlCopy.Err = err.Error()
-		json, _ := ffjson.Marshal(&urlCopy)
-		w.WriteHeader(400)
-		w.Write(json)
-	}
-	err = db.C("UrlStatsCollection").Remove(bson.M{"id": id})
-	if err != nil {
-		logger.Error(err.Error())
-
-		urlCopy.Success = false
-		urlCopy.Err = err.Error()
-		json, _ := ffjson.Marshal(&urlCopy)
-		w.WriteHeader(400)
-		w.Write(json)
-	}
+	w.WriteHeader(http.StatusNotFound)
+	w.Write([]byte("Not Found"))
 }
 
 // generate handles short url endpoint
 func generate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	w.Header().Set("Content-Type", "application/json")
-
 	// Unmarshal JSON request
-	var urlCopy models.URL
+	urlCopy := models.URL{}
+
 	if err := ffjson.NewDecoder().DecodeReader(r.Body, &urlCopy); err != nil {
-		logger.Error(err.Error())
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
 
 		urlCopy.Success = false
 		urlCopy.Err = err.Error()
-		json, err := ffjson.Marshal(&urlCopy)
-		if err != nil {
-			logger.Error(err.Error())
-		}
+		json, _ := ffjson.Marshal(&urlCopy)
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(json)
 		return
 	}
 
 	// Long URL empty
 	if urlCopy.LongURL == "" {
-		logger.Error("URL null")
+		logger.Warn("Empty URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL null"
+		json, _ := ffjson.Marshal(&urlCopy)
+		w.Write(json)
+		return
+	}
+
+	// URL is invalid
+	if ok, _ := utils.IsURL(urlCopy.LongURL); !ok {
+		logger.Warn("Invalid URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.Header.Get("X-Forwarded-For")))
+
+		urlCopy.Success = false
+		urlCopy.Err = "URL invalid: " + urlCopy.LongURL
 		json, err := ffjson.Marshal(&urlCopy)
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
 		}
 		w.Write(json)
 		return
 	}
 
-	db := newSession.DB("short")
+	// URL is on the blacklist
+	if blacklisted, _ := utils.IsBlackList(urlCopy.LongURL); blacklisted {
+		logger.Warn("Unallowed URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.Header.Get("X-Forwarded-For")))
 
-	var result models.URL
-	db.C("UrlCollection").Find(bson.M{"hash": fmt.Sprintf("%x", sha256.Sum256([]byte(urlCopy.LongURL)))}).One(&result)
+		urlCopy.Success = false
+		urlCopy.Err = "URL is on blacklist: " + urlCopy.LongURL
+		json, _ := ffjson.Marshal(&urlCopy)
+		w.Write(json)
+		return
+	}
 
-	// URL exists
+	// Trim trailing slash
+	if strings.HasSuffix(urlCopy.LongURL, "/") {
+		urlCopy.LongURL = urlCopy.LongURL[0 : len(urlCopy.LongURL)-1]
+	}
+
+	// Reorder url query for consistency
+	urlCopy.LongURL = utils.ReOrderQuery(urlCopy.LongURL)
+
+	db := newSession.DB(conf.Database.DB)
+
+	if !strings.HasSuffix(conf.Server.Base, "/") {
+		conf.Server.Base += "/"
+	}
+
+	// Check if url exists
+	result := models.URL{}
+	db.C("url").Find(bson.M{"hash": fmt.Sprintf("%x", sha256.Sum256([]byte(urlCopy.LongURL)))}).One(&result)
 	if result.LongURL != "" {
-		//result.ShortURL = "http://localhost:8080/" + result.ID
-		result.ShortURL = server.Base + result.ID
-		json, err := ffjson.Marshal(&result)
-		if err != nil {
-			logger.Error(err.Error())
-		}
+		result.Success = true
+		result.ShortURL = conf.Server.Base + result.ID
+		json, _ := ffjson.Marshal(&result)
 		w.Write(json)
 		return
 	}
 
-	if err = db.C("UrlCollection").Find(bson.M{}).Sort("-id").One(&result); err != nil {
-		logger.Error(err.Error())
+	// Code for FindAndModify
+	doc := models.Counter{}
+
+	changes := mgo.Change{
+		Update:    bson.M{"$inc": bson.M{"sequence": 1}},
+		Upsert:    true,
+		ReturnNew: true,
+	}
+
+	_, err := db.C("counter").Find(bson.M{"_id": "shlink.cc"}).Apply(changes, &doc)
+	if err != nil {
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
 	}
 
 	urlCopy.Hash = fmt.Sprintf("%x", sha256.Sum256([]byte(urlCopy.LongURL)))
-	id, _ := genid.GenerateNextID(result.ID)
+	id := genid.IntToBase62(doc.Sequence - 1)
 	urlCopy.ID = id
 	urlCopy.Timestamp = time.Now()
 
-	if err = db.C("UrlCollection").Insert(&urlCopy); err != nil {
-		logger.Error(err.Error())
+	if err = db.C("url").Insert(&urlCopy); err != nil {
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
 	}
 
-	//urlCopy.ShortURL = "http://localhost:8080/" + urlCopy.ID
-	urlCopy.ShortURL = server.Base + urlCopy.ID
+	urlCopy.ShortURL = conf.Server.Base + urlCopy.ID
 	urlCopy.Success = true
 
-	json, err := ffjson.Marshal(&urlCopy)
-	if err != nil {
-		logger.Error(err.Error())
-	}
+	json, _ := ffjson.Marshal(&urlCopy)
 
 	w.Write(json)
 }
 
-// exists return whether the given file or directory exists or not
-func exists(path string) (bool, error) {
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return false, err
-		}
-		return false, err
+func info(w http.ResponseWriter, r *http.Request) {
+	id := bone.GetValue(r, "id")
+
+	newSession := session.Copy()
+	defer newSession.Close()
+
+	db := newSession.DB(conf.Database.DB)
+
+	result := models.URL{}
+	err := db.C("url").Find(bson.M{"id": id}).One(&result)
+	if err != nil {
+		logger.Error(err.Error())
 	}
 
-	return true, nil
+	if result.LongURL == "" {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("404 not found"))
+
+		return
+	}
+
+	result.Success = true
+
+	js, err := ffjson.Marshal(&result)
+	if err != nil {
+		logger.Error(err.Error())
+	}
+
+	w.Write(js)
+}
+
+// handleRobots
+func handleRobots(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("User-agent: *\nDisallow: /"))
+}
+
+// handleCORS enables CORS functionality
+func handleCORS(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept-Language, token")
+	return
+}
+
+// status returns status
+func status(w http.ResponseWriter, r *http.Request) {
+	resp, _ := ffjson.Marshal(struct {
+		Success    bool   `json:"success"`
+		Version    string `json:"version"`
+		GoVersion  string `json:"go"`
+		GoPlatform string `json:"platform"`
+	}{
+		Success:    true,
+		Version:    version,
+		GoVersion:  goVersion,
+		GoPlatform: goPlatform,
+	})
+
+	w.Write(resp)
+}
+
+// middlewareLog handles log
+func middlewareLog(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		next(w, r)
+	}
 }
 
 func main() {
 
+	conf.ReadConfig()
+
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   "logs/short.log",
-		MaxSize:    25,
-		MaxBackups: 2,
-		MaxAge:     14,
+		Filename:   conf.Log.Filename,
+		MaxSize:    conf.Log.MaxSize,
+		MaxBackups: conf.Log.MaxBackups,
+		MaxAge:     conf.Log.MaxAge,
+		Compress:   true,
 	})
 
 	core := zapcore.NewCore(
@@ -247,17 +292,17 @@ func main() {
 	defer logger.Sync()
 
 	// Connect to mongodb
-	session, err = mgo.Dial(fmt.Sprintf("%s:%d", database.Host, database.Port))
+	session, err = mgo.Dial(conf.Database.Host + ":" + conf.Database.Port)
 	if err != nil {
 		logger.Error(err.Error())
 		panic(err)
 	}
 
-	logger.Info("Connected successfully to MongoDB", zap.String("url", fmt.Sprintf("%s:%d", database.Host, database.Port)))
-
 	defer session.Close()
 
-	if err := session.DB("short").C("UrlCollection").EnsureIndex(mgo.Index{
+	db := session.DB(conf.Database.DB)
+
+	if err := db.C("url").EnsureIndex(mgo.Index{
 		Key:    []string{"hash", "id"},
 		Unique: true,
 	}); err != nil {
@@ -265,30 +310,30 @@ func main() {
 		panic(err)
 	}
 
-	if err := session.DB("short").C("UrlCollection").EnsureIndex(mgo.Index{
-		Key:         []string{"ttl"},
-		Background:  true,
-		ExpireAfter: 0,
+	if err := db.C("counter").EnsureIndex(mgo.Index{
+		Key:    []string{"_id", "sequence"},
+		Unique: true,
 	}); err != nil {
 		logger.Error(err.Error())
 		panic(err)
 	}
 
-	fmt.Printf("Listening on %s:%d\n", server.Host, server.Port)
-
-	/*if err := session.DB("short").C("UrlStatsCollection").EnsureIndex(mgo.Index{
-		Key:    []string{"id"},
-		Unique: true,
-	}); err != nil {
-		logger.Error(err.Error())
-		panic(err)
-	}*/
+	fmt.Printf("Shlink-Server %s\n", version)
+	fmt.Printf("go: %s\n", goVersion)
+	fmt.Printf("Listening on %s:%s\n", conf.Server.Host, conf.Server.Port)
 
 	mux := bone.New()
-	mux.GetFunc("/", index)
-	mux.GetFunc("/:id", redirectFull)
-	mux.PostFunc("/api/v1/generate", generate)
-	mux.DeleteFunc("/api/v1/delete/:id", delete)
 
-	logger.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", server.Host, server.Port), mux).Error())
+	mux.GetFunc("/", middlewareLog(index))
+	mux.GetFunc("/robots.txt", handleRobots)
+	mux.GetFunc("/:id", redirectFull)
+
+	mux.OptionsFunc("/api/generate", handleCORS)
+	mux.PostFunc("/api/generate", generate)
+
+	mux.GetFunc("/api/status", status)
+
+	mux.GetFunc("/api/info/:id", info)
+
+	logger.Fatal(http.ListenAndServe(conf.Server.Host+":"+conf.Server.Port, mux).Error())
 }

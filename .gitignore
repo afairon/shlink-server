@@ -1,0 +1,6 @@
+bin/*
+
+models/*_ffjson.go
+
+Gopkg.lock
+vendor
