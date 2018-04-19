@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"flag"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -19,21 +20,27 @@ import (
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
-	"github.com/go-zoo/bone"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/pquerna/ffjson/ffjson"
 	"go.uber.org/zap"
 )
 
-var conf = config.New()
+var (
+	conf = config.New()
 
-var logger *zap.Logger
-var session *mgo.Session
+	logger  *zap.Logger
+	session *mgo.Session
 
-var err error
+	err error
 
-var version string
-var goVersion string
-var goPlatform string
+	version    string
+	goVersion  string
+	goPlatform string
+
+	debug = flag.Bool("debug", false, "Enable stdout logger")
+)
 
 func index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
@@ -63,7 +70,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirectFull(w http.ResponseWriter, r *http.Request) {
-	id := bone.GetValue(r, "id")
+	id := chi.URLParam(r, "id")
 
 	newSession := session.Copy()
 	defer newSession.Close()
@@ -78,7 +85,7 @@ func redirectFull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.LongURL != "" {
-		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		http.Redirect(w, r, result.LongURL, 301)
 
 		return
@@ -98,7 +105,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	urlCopy := models.URL{}
 
 	if err := ffjson.NewDecoder().DecodeReader(r.Body, &urlCopy); err != nil {
-		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 
 		urlCopy.Success = false
 		urlCopy.Err = err.Error()
@@ -110,7 +117,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 	// Long URL empty
 	if urlCopy.LongURL == "" {
-		logger.Warn("Empty URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Warn("Empty URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL null"
@@ -121,13 +128,13 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 	// URL is invalid
 	if ok, _ := utils.IsURL(urlCopy.LongURL); !ok {
-		logger.Warn("Invalid URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Warn("Invalid URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.RemoteAddr))
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL invalid: " + urlCopy.LongURL
 		json, err := ffjson.Marshal(&urlCopy)
 		if err != nil {
-			logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+			logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		}
 		w.Write(json)
 		return
@@ -135,7 +142,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 	// URL is on the blacklist
 	if blacklisted, _ := utils.IsBlackList(urlCopy.LongURL); blacklisted {
-		logger.Warn("Unallowed URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Warn("Unallowed URL", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("url", urlCopy.LongURL), zap.String("client", r.RemoteAddr))
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL is on blacklist: " + urlCopy.LongURL
@@ -180,7 +187,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 	_, err := db.C("counter").Find(bson.M{"_id": "shlink.cc"}).Apply(changes, &doc)
 	if err != nil {
-		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 	}
 
 	urlCopy.Hash = fmt.Sprintf("%x", sha256.Sum256([]byte(urlCopy.LongURL)))
@@ -189,7 +196,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	urlCopy.Timestamp = time.Now()
 
 	if err = db.C("url").Insert(&urlCopy); err != nil {
-		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 	}
 
 	urlCopy.ShortURL = conf.Server.Base + urlCopy.ID
@@ -201,7 +208,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 }
 
 func info(w http.ResponseWriter, r *http.Request) {
-	id := bone.GetValue(r, "id")
+	id := chi.URLParam(r, "id")
 
 	newSession := session.Copy()
 	defer newSession.Close()
@@ -236,14 +243,6 @@ func handleRobots(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User-agent: *\nDisallow: /"))
 }
 
-// handleCORS enables CORS functionality
-func handleCORS(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-	w.Header().Set("Access-Control-Allow-Methods", "POST")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept-Language, token")
-	return
-}
-
 // status returns status
 func status(w http.ResponseWriter, r *http.Request) {
 	resp, _ := ffjson.Marshal(struct {
@@ -264,12 +263,14 @@ func status(w http.ResponseWriter, r *http.Request) {
 // middlewareLog handles log
 func middlewareLog(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.Header.Get("X-Forwarded-For")))
+		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		next(w, r)
 	}
 }
 
 func main() {
+
+	flag.Parse()
 
 	conf.ReadConfig()
 
@@ -322,18 +323,38 @@ func main() {
 	fmt.Printf("go: %s\n", goVersion)
 	fmt.Printf("Listening on %s:%s\n", conf.Server.Host, conf.Server.Port)
 
-	mux := bone.New()
+	// router
+	r := chi.NewRouter()
 
-	mux.GetFunc("/", middlewareLog(index))
-	mux.GetFunc("/robots.txt", handleRobots)
-	mux.GetFunc("/:id", redirectFull)
+	// enable CORS
+	cors := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "Content-Length",
+			"Accept-Encoding", "X-CSRF-Token", "Authorization",
+			"Accept-Language", "Token"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
 
-	mux.OptionsFunc("/api/generate", handleCORS)
-	mux.PostFunc("/api/generate", generate)
+	// middleware
+	r.Use(middleware.StripSlashes)
+	r.Use(cors.Handler)
+	r.Use(middleware.RealIP)
+	if *debug {
+		r.Use(middleware.Logger)
+	}
+	r.Use(middleware.Recoverer)
 
-	mux.GetFunc("/api/status", status)
+	r.Get("/", middlewareLog(index))
+	r.Get("/robots.txt", handleRobots)
+	r.Get("/{id}", redirectFull)
 
-	mux.GetFunc("/api/info/:id", info)
+	r.Post("/api/generate", generate)
 
-	logger.Fatal(http.ListenAndServe(conf.Server.Host+":"+conf.Server.Port, mux).Error())
+	r.Get("/api/status", status)
+
+	r.Get("/api/info/{id}", info)
+
+	logger.Fatal(http.ListenAndServe(conf.Server.Host+":"+conf.Server.Port, r).Error())
 }
