@@ -26,12 +26,8 @@ generate:
 	go generate ./...
 
 .PHONY: test
-test:
+test: fmt
 	go test -cover ./...
-
-.PHONY: bench
-bench:
-	go test -bench=. -benchmem ./...
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): generate fmt

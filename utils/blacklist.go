@@ -4,6 +4,7 @@ import (
 	"net/url"
 )
 
+// domains on blacklist
 var domains = map[string]struct{}{
 	"shlink.cc":   struct{}{},
 	"goo.gl":      struct{}{},
@@ -14,7 +15,7 @@ var domains = map[string]struct{}{
 }
 
 // IsBlackList checks wether the url is on the
-// blacklist or not
+// blacklist or not.
 func IsBlackList(s string) (bool, error) {
 	u, err := url.Parse(s)
 	if err != nil {

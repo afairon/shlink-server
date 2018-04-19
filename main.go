@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var conf config.Config
+var conf = config.New()
 
 var logger *zap.Logger
 var session *mgo.Session

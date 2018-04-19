@@ -5,7 +5,9 @@ import (
 	"time"
 )
 
-// URL basic mongo structure
+// URL is a document structure for
+// the collection url. It is used to
+// store url(s).
 type URL struct {
 	Success   bool      `json:"success,omitempty" bson:",omitempty"`
 	Err       string    `json:"err,omitempty" bson:",omitempty"`

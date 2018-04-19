@@ -5,65 +5,21 @@ import (
 	"testing"
 )
 
-func TestGenerateNextID(t *testing.T) {
-	code, err := GenerateNextID("")
-	if err != nil {
-		t.Error(err)
+func TestIntToBase62(t *testing.T) {
+	if id := IntToBase62(0); id != "a" {
+		t.Errorf("Expect ID to be 'a' but received '%s'", id)
 	}
 
-	if code != "a" {
-		fmt.Printf("ID: %s\n", code)
-		t.Error("Expect ID to be a")
+	if id := IntToBase62(1); id != "b" {
+		t.Errorf("Expect ID to be 'b' but received '%s'", id)
 	}
 
-	code, err = GenerateNextID("a")
-	if err != nil {
-		t.Error(err)
+	if id := IntToBase62(62); id != "ba" {
+		t.Errorf("Expect ID to be 'ba' but received '%s'", id)
 	}
 
-	if code != "b" {
-		fmt.Printf("ID: %s\n", code)
-		t.Error("Expect ID to be b")
-	}
-
-	code, err = GenerateNextID("9")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if code != "aa" {
-		fmt.Printf("ID: %s\n", code)
-		t.Error("Expect ID to be aa")
-	}
-
-	code, err = GenerateNextID("aa")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if code != "ab" {
-		fmt.Printf("ID: %s\n", code)
-		t.Error("Expect ID to be ab")
-	}
-
-	code, err = GenerateNextID("a9")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if code != "ba" {
-		fmt.Printf("ID: %s\n", code)
-		t.Error("Expect ID to be ba")
-	}
-}
-
-func BenchmarkGenID(b *testing.B) {
-	var id string
-	for i := 0; i <= 1000; i++ {
-		code, err := GenerateNextID(id)
-		if err != nil {
-			b.Fatal("Error detected")
-		}
-		id = code
+	if id := IntToBase62(256); id != "ei" {
+		fmt.Printf("ID: %s\n", id)
+		t.Errorf("Expect ID to be 'ei' but received '%s'", id)
 	}
 }

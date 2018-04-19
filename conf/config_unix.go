@@ -10,8 +10,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Name of the config
 const configFile = "shlink.yml"
 
+// Config is a yaml structure for
+// managing config.
 type Config struct {
 	Database db     `yaml:"database"`
 	Log      log    `yaml:"log"`
@@ -49,6 +52,14 @@ func exists(path string) (bool, error) {
 	return true, nil
 }
 
+// New creates a pointer to the configuration struct
+func New() *Config {
+	return &Config{}
+}
+
+// ReadConfig checks if the configuration file exists.
+// If it exists than unmarshal it to a structure.
+// Else, create one with default settings and exit(0).
 func (c *Config) ReadConfig() {
 	if ok, _ := exists("/etc/shlink/" + configFile); ok {
 		f, err := ioutil.ReadFile("/etc/shlink/" + configFile)
@@ -64,20 +75,20 @@ func (c *Config) ReadConfig() {
 	f, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		// Database
-		c.Database.Host = "127.0.0.1"
-		c.Database.Port = "27017"
-		c.Database.DB = "shlink"
+		c.Database.Host = "127.0.0.1" // MongoDB address
+		c.Database.Port = "27017"     // MongoDB port
+		c.Database.DB = "shlink"      // MongoDB db name
 
 		// Logger
-		c.Log.Filename = "logs/shlink.log"
-		c.Log.MaxSize = 10   // Size in MB
-		c.Log.MaxBackups = 2 // Length in days
-		c.Log.MaxAge = 7     // Duration in days
+		c.Log.Filename = "logs/shlink.log" // Log filename
+		c.Log.MaxSize = 10                 // Size in MB
+		c.Log.MaxBackups = 2               // Length in days
+		c.Log.MaxAge = 7                   // Duration in days
 
 		// Server
-		c.Server.Host = "127.0.0.1"
-		c.Server.Port = "8080"
-		c.Server.Base = "http://" + c.Server.Host + ":" + c.Server.Port
+		c.Server.Host = "127.0.0.1"                                     // Listening address
+		c.Server.Port = "8080"                                          // Listening port
+		c.Server.Base = "http://" + c.Server.Host + ":" + c.Server.Port // External address
 
 		f, _ := yaml.Marshal(c)
 		ioutil.WriteFile(configFile, f, 0664)

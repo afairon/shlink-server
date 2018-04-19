@@ -6,7 +6,7 @@ import (
 )
 
 // ReOrderQuery orders url query for
-// hash consistency
+// hash consistency.
 func ReOrderQuery(s string) string {
 	u, _ := url.Parse(s)
 	q, _ := url.ParseQuery(u.RawQuery)
