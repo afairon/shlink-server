@@ -23,7 +23,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
-	"github.com/pquerna/ffjson/ffjson"
+	json "github.com/pquerna/ffjson/ffjson"
 	"go.uber.org/zap"
 )
 
@@ -104,12 +104,12 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	// Unmarshal JSON request
 	urlCopy := models.URL{}
 
-	if err := ffjson.NewDecoder().DecodeReader(r.Body, &urlCopy); err != nil {
+	if err := json.NewDecoder().DecodeReader(r.Body, &urlCopy); err != nil {
 		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 
 		urlCopy.Success = false
 		urlCopy.Err = err.Error()
-		json, _ := ffjson.Marshal(&urlCopy)
+		json, _ := json.Marshal(&urlCopy)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(json)
 		return
@@ -121,7 +121,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL null"
-		json, _ := ffjson.Marshal(&urlCopy)
+		json, _ := json.Marshal(&urlCopy)
 		w.Write(json)
 		return
 	}
@@ -132,7 +132,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL invalid: " + urlCopy.LongURL
-		json, err := ffjson.Marshal(&urlCopy)
+		json, err := json.Marshal(&urlCopy)
 		if err != nil {
 			logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		}
@@ -146,7 +146,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 
 		urlCopy.Success = false
 		urlCopy.Err = "URL is on blacklist: " + urlCopy.LongURL
-		json, _ := ffjson.Marshal(&urlCopy)
+		json, _ := json.Marshal(&urlCopy)
 		w.Write(json)
 		return
 	}
@@ -171,7 +171,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	if result.LongURL != "" {
 		result.Success = true
 		result.ShortURL = conf.Server.Base + result.ID
-		json, _ := ffjson.Marshal(&result)
+		json, _ := json.Marshal(&result)
 		w.Write(json)
 		return
 	}
@@ -202,7 +202,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	urlCopy.ShortURL = conf.Server.Base + urlCopy.ID
 	urlCopy.Success = true
 
-	json, _ := ffjson.Marshal(&urlCopy)
+	json, _ := json.Marshal(&urlCopy)
 
 	w.Write(json)
 }
@@ -230,7 +230,7 @@ func info(w http.ResponseWriter, r *http.Request) {
 
 	result.Success = true
 
-	js, err := ffjson.Marshal(&result)
+	js, err := json.Marshal(&result)
 	if err != nil {
 		logger.Error(err.Error())
 	}
@@ -245,7 +245,7 @@ func handleRobots(w http.ResponseWriter, r *http.Request) {
 
 // status returns status
 func status(w http.ResponseWriter, r *http.Request) {
-	resp, _ := ffjson.Marshal(struct {
+	resp, _ := json.Marshal(struct {
 		Success    bool   `json:"success"`
 		Version    string `json:"version"`
 		GoVersion  string `json:"go"`
@@ -266,6 +266,26 @@ func middlewareLog(next http.HandlerFunc) http.HandlerFunc {
 		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		next(w, r)
 	}
+}
+
+// FileServer conveniently sets up a http.FileServer handler to serve
+// static files from http.FileSystem
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit URL parameters.")
+	}
+
+	fs := http.StripPrefix(path, http.FileServer(root))
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler("/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fs.ServeHTTP(w, r)
+	}))
 }
 
 func main() {
@@ -321,12 +341,13 @@ func main() {
 
 	fmt.Printf("Shlink-Server %s\n", version)
 	fmt.Printf("go: %s\n", goVersion)
+	fmt.Printf("platform: %s\n", goPlatform)
 	fmt.Printf("Listening on %s:%s\n", conf.Server.Host, conf.Server.Port)
 
-	// router
+	// Router
 	r := chi.NewRouter()
 
-	// enable CORS
+	// Enable CORS
 	cors := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST"},
@@ -337,7 +358,7 @@ func main() {
 		MaxAge:           300,
 	})
 
-	// middleware
+	// Middlewares
 	r.Use(middleware.StripSlashes)
 	r.Use(cors.Handler)
 	r.Use(middleware.RealIP)
@@ -346,6 +367,7 @@ func main() {
 	}
 	r.Use(middleware.Recoverer)
 
+	// Endpoints
 	r.Get("/", middlewareLog(index))
 	r.Get("/robots.txt", handleRobots)
 	r.Get("/{id}", redirectFull)
@@ -355,6 +377,9 @@ func main() {
 	r.Get("/api/status", status)
 
 	r.Get("/api/info/{id}", info)
+
+	// Serve files
+	FileServer(r, "/public", http.Dir("./public"))
 
 	logger.Fatal(http.ListenAndServe(conf.Server.Host+":"+conf.Server.Port, r).Error())
 }

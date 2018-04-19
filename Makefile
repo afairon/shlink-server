@@ -21,6 +21,10 @@ vendor: Gopkg.toml
 fmt:
 	go fmt ./...
 
+.PHONY: vet
+vet:
+	go vet ./...
+
 .PHONY: generate
 generate:
 	go generate ./...
@@ -30,7 +34,7 @@ test: fmt
 	go test -cover ./...
 
 .PHONY: $(PLATFORMS)
-$(PLATFORMS): generate fmt
+$(PLATFORMS): generate fmt vet
 	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -X main.version=$(VERSION) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
 
 .PHONY: clean
