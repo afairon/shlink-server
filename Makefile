@@ -35,7 +35,7 @@ test: fmt
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): generate fmt vet
-	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -X main.version=$(VERSION) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
+	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -extldflags -lm -X main.version=$(VERSION) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
 
 .PHONY: clean
 clean:

@@ -14,6 +14,7 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
 	config "shlink-server/conf"
+	middlewares "shlink-server/middlewares"
 	"shlink-server/models"
 	"shlink-server/pkg/genid"
 	utils "shlink-server/utils"
@@ -60,11 +61,13 @@ func index(w http.ResponseWriter, r *http.Request) {
 		},
 	}).ParseFiles("public/index.html", "public/head.html")
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err.Error())
 	}
 
 	err = t.Execute(w, nil)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err.Error())
 	}
 }
@@ -88,6 +91,8 @@ func redirectFull(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Access", zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		http.Redirect(w, r, result.LongURL, 301)
 
+		db.C("statistics").Upsert(bson.M{"id": result.ID}, bson.M{"$set": bson.M{"id": result.ID}, "$inc": bson.M{"clicks": 1}})
+
 		return
 	}
 	w.WriteHeader(http.StatusNotFound)
@@ -96,8 +101,6 @@ func redirectFull(w http.ResponseWriter, r *http.Request) {
 
 // generate handles short url endpoint
 func generate(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	newSession := session.Copy()
 	defer newSession.Close()
 
@@ -110,7 +113,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 		urlCopy.Success = false
 		urlCopy.Err = err.Error()
 		json, _ := json.Marshal(&urlCopy)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(json)
 		return
 	}
@@ -122,6 +125,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 		urlCopy.Success = false
 		urlCopy.Err = "URL null"
 		json, _ := json.Marshal(&urlCopy)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(json)
 		return
 	}
@@ -136,6 +140,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
 		}
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(json)
 		return
 	}
@@ -147,6 +152,7 @@ func generate(w http.ResponseWriter, r *http.Request) {
 		urlCopy.Success = false
 		urlCopy.Err = "URL is on blacklist: " + urlCopy.LongURL
 		json, _ := json.Marshal(&urlCopy)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(json)
 		return
 	}
@@ -193,7 +199,8 @@ func generate(w http.ResponseWriter, r *http.Request) {
 	urlCopy.Hash = fmt.Sprintf("%x", sha256.Sum256([]byte(urlCopy.LongURL)))
 	id := genid.IntToBase62(doc.Sequence - 1)
 	urlCopy.ID = id
-	urlCopy.Timestamp = time.Now()
+	timeStamp := time.Now()
+	urlCopy.Timestamp = &timeStamp
 
 	if err = db.C("url").Insert(&urlCopy); err != nil {
 		logger.Error(err.Error(), zap.String("method", r.Method), zap.String("path", r.RequestURI), zap.String("client", r.RemoteAddr))
@@ -215,22 +222,33 @@ func info(w http.ResponseWriter, r *http.Request) {
 
 	db := newSession.DB(conf.Database.DB)
 
-	result := models.URL{}
-	err := db.C("url").Find(bson.M{"id": id}).One(&result)
+	resp := []models.URL{}
+	pipe := db.C("url").Pipe([]bson.M{{"$match": bson.M{"id": id}}, {"$lookup": bson.M{"from": "statistics", "localField": "id", "foreignField": "id", "as": "stats"}}})
+	err := pipe.All(&resp)
 	if err != nil {
 		logger.Error(err.Error())
 	}
 
-	if result.LongURL == "" {
+	if len(resp) < 1 {
+		resp = append(resp, models.URL{
+			Success: false,
+			Err:     "ID requested doesn't exists.",
+		})
+
+		js, err := json.Marshal(&resp[0])
+		if err != nil {
+			logger.Error(err.Error())
+		}
+
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 not found"))
+		w.Write(js)
 
 		return
 	}
 
-	result.Success = true
+	resp[0].Success = true
 
-	js, err := json.Marshal(&result)
+	js, err := json.Marshal(&resp[0])
 	if err != nil {
 		logger.Error(err.Error())
 	}
@@ -331,6 +349,14 @@ func main() {
 		panic(err)
 	}
 
+	if err := db.C("statistics").EnsureIndex(mgo.Index{
+		Key:    []string{"id"},
+		Unique: true,
+	}); err != nil {
+		logger.Error(err.Error())
+		panic(err)
+	}
+
 	if err := db.C("counter").EnsureIndex(mgo.Index{
 		Key:    []string{"_id", "sequence"},
 		Unique: true,
@@ -365,6 +391,7 @@ func main() {
 	if *debug {
 		r.Use(middleware.Logger)
 	}
+	r.Use(middlewares.NewZapMiddleware("router", logger))
 	r.Use(middleware.Recoverer)
 
 	// Endpoints
@@ -372,11 +399,14 @@ func main() {
 	r.Get("/robots.txt", handleRobots)
 	r.Get("/{id}", redirectFull)
 
-	r.Post("/api/generate", generate)
-
-	r.Get("/api/status", status)
-
-	r.Get("/api/info/{id}", info)
+	// API sub-router
+	r.Route("/api", func(r chi.Router) {
+		r.Use(middleware.SetHeader("Content-Type", "application/json"))
+		r.Use(middleware.NoCache)
+		r.Get("/info/{id}", info)
+		r.Get("/status", status)
+		r.Post("/generate", generate)
+	})
 
 	// Serve files
 	FileServer(r, "/public", http.Dir("./public"))

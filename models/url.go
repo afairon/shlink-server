@@ -9,11 +9,16 @@ import (
 // the collection url. It is used to
 // store url(s).
 type URL struct {
-	Success   bool      `json:"success,omitempty" bson:",omitempty"`
-	Err       string    `json:"err,omitempty" bson:",omitempty"`
-	Hash      string    `json:"-" bson:"hash"`
-	ID        string    `json:"id,omitempty" bson:"id"`
-	ShortURL  string    `json:"targeturl,omitempty" bson:",omitempty"`
-	LongURL   string    `json:"longurl,omitempty" bson:"longurl"`
-	Timestamp time.Time `json:"ts,omitempty" bson:"ts"`
+	Success   bool       `bson:",omitempty" json:"success,omitempty"`
+	Err       string     `bson:",omitempty" json:"err,omitempty"`
+	Hash      string     `bson:"hash" json:"-"`
+	ID        string     `bson:"id" json:"id,omitempty"`
+	ShortURL  string     `bson:",omitempty" json:"targeturl,omitempty"`
+	LongURL   string     `bson:"longurl" json:"longurl,omitempty"`
+	Timestamp *time.Time `bson:"ts" json:"ts,omitempty"`
+	Stats     []Stats    `bson:"stats,omitempty" json:"stats,omitempty"`
+}
+
+type Stats struct {
+	Clicks int `bson:"clicks" json:"clicks,omitempty"`
 }
