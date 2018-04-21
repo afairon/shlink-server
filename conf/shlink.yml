@@ -1,0 +1,13 @@
+database:
+  host: 127.0.0.1
+  port: "27017"
+  db: shlink
+log:
+  logName: logs/shlink.log
+  maxSize: 10
+  maxBackups: 2
+  maxAge: 7
+server:
+  host: 127.0.0.1
+  port: "8080"
+  base: http://127.0.0.1:8080

@@ -6,7 +6,7 @@ import (
 
 func TestIsBlacklist(t *testing.T) {
 	url := "https://goo.gl/"
-	if ban, ok := IsBlackList(url); !ban || ok != nil {
+	if ban, err := IsBlackList(url); !ban || err != nil {
 		t.Error("Blacklist not working correctly.")
 	}
 }

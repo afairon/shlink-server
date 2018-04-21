@@ -1,12 +1,17 @@
-package conf
+// +build !windows
+
+package utils
 
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
+
+var Conf = New()
 
 // Name of the config
 const configFile = "shlink.yml"
@@ -38,6 +43,22 @@ type server struct {
 	Base string `yaml:"base"`
 }
 
+func init() {
+	Conf.ReadConfig()
+}
+
+// exists return whether the given file or directory exists or not
+func exists(path string) (bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false, err
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
 // New creates a pointer to the configuration struct
 func New() *Config {
 	return &Config{}
@@ -47,6 +68,17 @@ func New() *Config {
 // If it exists than unmarshal it to a structure.
 // Else, create one with default settings and exit(0).
 func (c *Config) ReadConfig() {
+	if ok, _ := exists("/etc/shlink/" + configFile); ok {
+		f, err := ioutil.ReadFile("/etc/shlink/" + configFile)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := yaml.Unmarshal(f, &c); err != nil {
+			panic(err)
+		}
+	}
+
 	f, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		// Database
@@ -75,5 +107,9 @@ func (c *Config) ReadConfig() {
 
 	if err := yaml.Unmarshal(f, &c); err != nil {
 		panic(err)
+	}
+
+	if !strings.HasSuffix(c.Server.Base, "/") {
+		c.Server.Base += "/"
 	}
 }

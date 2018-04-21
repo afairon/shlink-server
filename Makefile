@@ -32,10 +32,11 @@ generate:
 .PHONY: test
 test: fmt
 	go test -cover ./...
+	rm utils/shlink.yml
 
 .PHONY: $(PLATFORMS)
-$(PLATFORMS): generate fmt vet
-	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -extldflags -lm -X main.version=$(VERSION) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
+$(PLATFORMS): fmt vet generate
+	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -extldflags -lm -X main.version=$(VERSION) -X main.platform=$(os) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
 
 .PHONY: clean
 clean:
