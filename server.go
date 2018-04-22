@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"shlink-server/cmd"
 	"shlink-server/handlers"
 	middlewares "shlink-server/middlewares"
 	"shlink-server/utils"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/cors"
 )
 
+// initializeRoutes initialize api routes.
 func initializeRoutes() *chi.Mux {
 	// Router
 	r := chi.NewRouter()
@@ -31,11 +33,15 @@ func initializeRoutes() *chi.Mux {
 	r.Use(middleware.StripSlashes)
 	r.Use(cors.Handler)
 	r.Use(middleware.RealIP)
-	if *debug {
+	if cmd.Verbose {
 		r.Use(middleware.Logger)
 	}
 	r.Use(middlewares.NewZapMiddleware("router", utils.Logger))
 	r.Use(middleware.Recoverer)
+
+	// Security header
+	r.Use(middleware.SetHeader("X-XSS-Protection", "1; mode=block"))
+	r.Use(middleware.SetHeader("X-Frame-Options", "DENY"))
 
 	// Endpoints
 	r.Get("/", web.Index)

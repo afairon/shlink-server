@@ -28,6 +28,7 @@ vet:
 .PHONY: generate
 generate:
 	go generate ./...
+	rm models/shlink.yml
 
 .PHONY: test
 test: fmt

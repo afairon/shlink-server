@@ -1,12 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"shlink-server/cmd"
 	"shlink-server/models"
 	utils "shlink-server/utils"
 )
@@ -16,14 +17,30 @@ var (
 	platform   string
 	goVersion  string
 	goPlatform string
-
-	debug = flag.Bool("debug", false, "Enable stdout logger")
 )
 
 func main() {
 
-	// Parsing flags
-	flag.Parse()
+	// Parsing commands and flags
+	cmd.Execute()
+
+	// Execute version
+	if cmd.Version {
+		if !cmd.NoBanner {
+			fmt.Printf("%s\n", cmd.Logo)
+		}
+		fmt.Printf("Shlink-Server %s\n", version)
+		fmt.Printf("platform: %s\n", platform)
+		fmt.Printf("go: %s\n", goVersion)
+		fmt.Printf("built: %s\n", goPlatform)
+
+		os.Exit(0)
+	}
+
+	// Don't start server
+	if !cmd.Start {
+		os.Exit(0)
+	}
 
 	// Setup zap logger
 	logger := utils.SetupLogger(&lumberjack.Logger{
@@ -48,6 +65,9 @@ func main() {
 	// Create indexes
 	models.CreateIndexes()
 
+	if !cmd.NoBanner {
+		fmt.Printf("%s\n", cmd.Logo)
+	}
 	fmt.Printf("Shlink-Server %s\n", version)
 	fmt.Printf("platform: %s\n", platform)
 	fmt.Printf("go: %s\n", goVersion)

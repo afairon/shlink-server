@@ -81,7 +81,7 @@ func Generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.TargetURL = utils.Conf.Server.Base + resp.ID
+	req.TargetURL = utils.Conf.Server.Base + resp.ID
 	req.Success = true
 
 	js, _ := json.Marshal(&req)
