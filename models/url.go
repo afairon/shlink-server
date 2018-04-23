@@ -12,8 +12,6 @@ import (
 // the collection url. It is used to
 // store url(s).
 type URL struct {
-	Success   bool       `bson:",omitempty" json:"success,omitempty"`
-	Err       string     `bson:",omitempty" json:"err,omitempty"`
 	Hash      string     `bson:"hash" json:"-"`
 	ID        string     `bson:"id" json:"id,omitempty"`
 	TargetURL string     `bson:",omitempty" json:"targeturl,omitempty"`
@@ -37,11 +35,8 @@ func FindURL(doc bson.M) (resp URL, err error) {
 	db := newSession.DB(dbName)
 
 	err = db.C(collections["url"]).Find(&doc).One(&resp)
-	if err != nil {
-		return resp, err
-	}
 
-	return resp, nil
+	return
 }
 
 // InfoURL returns document in an array of structures.
@@ -53,11 +48,8 @@ func InfoURL(id string) (resp []URL, err error) {
 
 	pipe := db.C(collections["url"]).Pipe([]bson.M{{"$match": bson.M{"id": id}}, {"$lookup": bson.M{"from": collections["statistics"], "localField": "id", "foreignField": "id", "as": "stats"}}})
 	err = pipe.All(&resp)
-	if err != nil {
-		return resp, err
-	}
 
-	return resp, nil
+	return
 }
 
 // InsertURL inserts a document.
@@ -68,11 +60,8 @@ func InsertURL(doc interface{}) (err error) {
 	db := newSession.DB(dbName)
 
 	err = db.C(collections["url"]).Insert(&doc)
-	if err != nil {
-		return
-	}
 
-	return nil
+	return
 }
 
 // ReadyToInsert fills document.
@@ -90,9 +79,7 @@ func UpdateStats(id string) (err error) {
 
 	db := newSession.DB(dbName)
 
-	if _, err = db.C(collections["statistics"]).Upsert(bson.M{"id": id}, bson.M{"$set": bson.M{"id": id}, "$inc": bson.M{"clicks": 1}}); err != nil {
-		return
-	}
+	_, err = db.C(collections["statistics"]).Upsert(bson.M{"id": id}, bson.M{"$set": bson.M{"id": id}, "$inc": bson.M{"clicks": 1}})
 
-	return nil
+	return
 }

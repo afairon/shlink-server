@@ -26,9 +26,6 @@ func FindAndModify(updateQuery bson.M) (doc Counter, err error) {
 	}
 
 	_, err = db.C(collections["counter"]).Find(bson.M{}).Apply(changes, &doc)
-	if err != nil {
-		return
-	}
 
-	return doc, nil
+	return
 }

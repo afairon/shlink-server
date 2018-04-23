@@ -41,7 +41,8 @@ func initializeRoutes() *chi.Mux {
 
 	// Security header
 	r.Use(middleware.SetHeader("X-XSS-Protection", "1; mode=block"))
-	r.Use(middleware.SetHeader("X-Frame-Options", "DENY"))
+	r.Use(middleware.SetHeader("X-Content-Type-Options", "nosniff"))
+	r.Use(middleware.SetHeader("X-Frame-Options", "SAMEORIGIN"))
 
 	// Endpoints
 	r.Get("/", web.Index)
@@ -55,7 +56,7 @@ func initializeRoutes() *chi.Mux {
 
 		r.Get("/info/{id}", handlers.InfoURL)
 		r.Get("/status", handlers.Status(version, platform, goVersion, goPlatform))
-		r.Post("/generate", handlers.Generate)
+		r.Post("/create", handlers.Generate)
 	})
 
 	// Serve files

@@ -1,6 +1,6 @@
 DIR := bin
 BIN := shlink
-VERSION := v1.0.0
+VERSION := v1.0.0-dev
 PLATFORMS := darwin linux freebsd windows
 os = $(word 1, $@)
 
@@ -28,12 +28,10 @@ vet:
 .PHONY: generate
 generate:
 	go generate ./...
-	rm models/shlink.yml
 
 .PHONY: test
 test: fmt
 	go test -cover ./...
-	rm utils/shlink.yml
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): fmt vet generate
