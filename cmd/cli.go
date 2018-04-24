@@ -63,16 +63,19 @@ var config = &cobra.Command{
 	Use:   "config",
 	Short: "Shows config",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("[Database] Host: %s\n", utils.Conf.Database.Host)
-		fmt.Printf("[Database] Port: %s\n", utils.Conf.Database.Port)
-		fmt.Printf("[Database] DB Name: %s\n", utils.Conf.Database.DB)
-		fmt.Printf("[Log] Log Name: %s\n", utils.Conf.Log.Filename)
-		fmt.Printf("[Log] Max Size: %d\n", utils.Conf.Log.MaxSize)
-		fmt.Printf("[Log] Max Backups: %d\n", utils.Conf.Log.MaxBackups)
-		fmt.Printf("[Log] Max Age: %d\n", utils.Conf.Log.MaxAge)
-		fmt.Printf("[Server] Host: %s\n", utils.Conf.Server.Host)
-		fmt.Printf("[Server] Port: %s\n", utils.Conf.Server.Port)
-		fmt.Printf("[Server] Base: %s\n", utils.Conf.Server.Base)
+		fmt.Println("[Database]")
+		fmt.Printf("Host: %s\n", utils.Conf.Database.Host)
+		fmt.Printf("Port: %s\n", utils.Conf.Database.Port)
+		fmt.Printf("DB Name: %s\n", utils.Conf.Database.DB)
+		fmt.Println("[Log]")
+		fmt.Printf("Log Name: %s\n", utils.Conf.Log.Filename)
+		fmt.Printf("Max Size: %d\n", utils.Conf.Log.MaxSize)
+		fmt.Printf("Max Backups: %d\n", utils.Conf.Log.MaxBackups)
+		fmt.Printf("Max Age: %d\n", utils.Conf.Log.MaxAge)
+		fmt.Println("[Server]")
+		fmt.Printf("Host: %s\n", utils.Conf.Server.Host)
+		fmt.Printf("Port: %s\n", utils.Conf.Server.Port)
+		fmt.Printf("Base: %s\n", utils.Conf.Server.Base)
 	},
 }
 

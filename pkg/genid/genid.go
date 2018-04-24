@@ -4,14 +4,14 @@ import (
 	"math"
 )
 
-var seedChars = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var seedChars = []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var seedCharsLen = len(seedChars)
 
 // IntToBase62 converts integer to
 // Base62 encoding.
 func IntToBase62(n int) string {
 	if n <= 0 {
-		return "a"
+		return "0"
 	}
 
 	b := make([]byte, 0, 64)

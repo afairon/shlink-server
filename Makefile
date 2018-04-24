@@ -1,6 +1,6 @@
 DIR := bin
 BIN := shlink
-VERSION := v1.0.0-dev
+VERSION := v1.0.1-dev
 PLATFORMS := darwin linux freebsd windows
 os = $(word 1, $@)
 
