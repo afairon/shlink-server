@@ -41,10 +41,6 @@ type server struct {
 	Base string `yaml:"base"`
 }
 
-func init() {
-	Conf.ReadConfig()
-}
-
 // New creates a pointer to the configuration struct
 func New() *Config {
 	return &Config{}

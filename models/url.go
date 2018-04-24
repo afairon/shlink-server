@@ -3,6 +3,7 @@ package models
 
 import (
 	"shlink-server/pkg/genid"
+	"shlink-server/utils"
 	"time"
 
 	"github.com/globalsign/mgo/bson"
@@ -32,7 +33,7 @@ func FindURL(doc bson.M) (resp URL, err error) {
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	err = db.C(collections["url"]).Find(&doc).One(&resp)
 
@@ -44,7 +45,7 @@ func InfoURL(id string) (resp []URL, err error) {
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	pipe := db.C(collections["url"]).Pipe([]bson.M{{"$match": bson.M{"id": id}}, {"$lookup": bson.M{"from": collections["statistics"], "localField": "id", "foreignField": "id", "as": "stats"}}})
 	err = pipe.All(&resp)
@@ -57,7 +58,7 @@ func InsertURL(doc interface{}) (err error) {
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	err = db.C(collections["url"]).Insert(&doc)
 
@@ -77,7 +78,7 @@ func UpdateStats(id string) (err error) {
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	_, err = db.C(collections["statistics"]).Upsert(bson.M{"id": id}, bson.M{"$set": bson.M{"id": id}, "$inc": bson.M{"clicks": 1}})
 

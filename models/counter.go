@@ -1,6 +1,8 @@
 package models
 
 import (
+	"shlink-server/utils"
+
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
 )
@@ -17,7 +19,7 @@ func FindAndModify(updateQuery bson.M) (doc Counter, err error) {
 	newSession := session.Copy()
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	changes := mgo.Change{
 		Update:    updateQuery,

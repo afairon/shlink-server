@@ -42,3 +42,5 @@ clean:
 	rm -rf bin/
 	rm -rf models/ffjson*
 	rm -rf models/*_ffjson.go
+	rm -rf handlers/ffjson*
+	rm -rf handlers/*_ffjson.go

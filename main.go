@@ -21,6 +21,7 @@ var (
 
 func main() {
 
+	utils.Conf.ReadConfig()
 	// Parsing commands and flags
 	cmd.Execute()
 

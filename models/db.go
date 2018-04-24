@@ -15,8 +15,6 @@ var collections = map[string]string{
 var session *mgo.Session
 var err error
 
-var dbName = utils.Conf.Database.DB
-
 // Connect establishes a new MongoDB session.
 func Connect(c *utils.Config) (*mgo.Session, error) {
 	if c.Database.Host == "" {
@@ -41,7 +39,7 @@ func CreateIndexes() {
 
 	defer newSession.Close()
 
-	db := newSession.DB(dbName)
+	db := newSession.DB(utils.Conf.Database.DB)
 
 	if err := db.C(collections["url"]).EnsureIndex(mgo.Index{
 		Key:    []string{"hash", "id"},

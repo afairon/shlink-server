@@ -12,17 +12,18 @@ var domains = map[string]struct{}{
 	"tinyurl.com": struct{}{},
 	"tiny.cc":     struct{}{},
 	"bc.vc":       struct{}{},
+	"localhost":   struct{}{},
 }
 
-// IsBlackList checks wether the url is on the
+// IsOnBlackList checks wether the url is on the
 // blacklist or not.
-func IsBlackList(s string) (bool, error) {
+func IsOnBlackList(s string) (bool, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return false, err
 	}
 
-	if _, ok := domains[u.Host]; ok {
+	if _, ok := domains[u.Hostname()]; ok {
 		return true, nil
 	}
 

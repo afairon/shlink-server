@@ -37,7 +37,7 @@ server:
 (C) Copyright 2018 Shlink. All Rights Reserved.
 
 Usage:
-  shlink-server [command]
+  shlink [command]
 
 Available Commands:
   config      Shows config
@@ -46,9 +46,9 @@ Available Commands:
   version     Shows binary version
 
 Flags:
-  -h, --help        help for shlink-server
+  -h, --help        help for shlink
       --no-banner   Don't display banner
 
-Use "shlink-server [command] --help" for more information about a command.
+Use "shlink [command] --help" for more information about a command.
 
 ```

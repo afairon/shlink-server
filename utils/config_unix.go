@@ -43,10 +43,6 @@ type server struct {
 	Base string `yaml:"base"`
 }
 
-func init() {
-	Conf.ReadConfig()
-}
-
 // exists return whether the given file or directory exists or not
 func exists(path string) (bool, error) {
 	if _, err := os.Stat(path); err != nil {

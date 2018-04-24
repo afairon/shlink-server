@@ -51,7 +51,7 @@ func Generate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify if URL is on the blacklist
-	if ban, err := utils.IsBlackList(req.LongURL); ban || err != nil {
+	if ban, err := utils.IsOnBlackList(req.LongURL); ban || err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			utils.Error(r, err)
