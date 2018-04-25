@@ -1,4 +1,3 @@
-//go:generate ffjson $GOFILE
 package models
 
 import (
@@ -12,6 +11,7 @@ import (
 // URL is a document structure for
 // the collection url. It is used to
 // store url(s).
+//go:generate $GOPATH/bin/ffjson $GOFILE
 type URL struct {
 	Hash      string     `bson:"hash" json:"-"`
 	ID        string     `bson:"id" json:"id,omitempty"`
@@ -24,6 +24,7 @@ type URL struct {
 // Stats is a document structure for
 // the collection statistics. It is used
 // for making statistics.
+//go:generate $GOPATH/bin/ffjson $GOFILE
 type Stats struct {
 	Clicks int `bson:"clicks" json:"clicks,omitempty"`
 }

@@ -15,6 +15,7 @@ type Counter struct {
 	Sequence int    `bson:"sequence"`
 }
 
+// FindAndModify offers an atomic incrementation operation.
 func FindAndModify(updateQuery bson.M) (doc Counter, err error) {
 	newSession := session.Copy()
 	defer newSession.Close()

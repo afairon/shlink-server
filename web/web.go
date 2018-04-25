@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"strings"
 
-	"github.com/go-chi/chi"
 	"golang.org/x/text/language"
 )
 
@@ -26,7 +24,7 @@ var message = map[string]map[string]string{
 
 // Index handles index page.
 func Index(w http.ResponseWriter, r *http.Request) {
-	r.Header.Set("Content-Type", "text/html")
+	r.Header.Set("Content-Type", "text/html; charset=utf-8")
 
 	// Set user preference language
 	// by using cookies.
@@ -46,7 +44,27 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lang string
+	lang := getLang(r)
+
+	t, err := template.New("index.html").Funcs(template.FuncMap{
+		"T": func(s string) string {
+			return message[lang][s]
+		},
+	}).ParseFiles("public/index.html", "public/head.html")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+	}
+	err = t.Execute(w, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+	}
+}
+
+// getLang retrieves user language
+// preference in http request.
+func getLang(r *http.Request) (lang string) {
 	c, err := r.Cookie("lang")
 	if err == nil {
 		if _, ok := langs[c.Value]; ok {
@@ -68,38 +86,5 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	t, err := template.New("index.html").Funcs(template.FuncMap{
-		"T": func(s string) string {
-			return message[lang][s]
-		},
-	}).ParseFiles("public/index.html", "public/head.html")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-	}
-	err = t.Execute(w, nil)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-	}
-}
-
-// FileServer conveniently sets up a http.FileServer handler to serve
-// static files from http.FileSystem.
-func FileServer(r chi.Router, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}*") {
-		panic("FileServer does not permit URL parameters.")
-	}
-
-	fs := http.StripPrefix(path, http.FileServer(root))
-
-	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler("/", 301).ServeHTTP)
-		path += "/"
-	}
-	path += "*"
-
-	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fs.ServeHTTP(w, r)
-	}))
+	return
 }

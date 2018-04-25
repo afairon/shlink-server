@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+//go:generate $GOPATH/bin/ffjson $GOFILE
 type HTTPError struct {
 	Code    int    `json:"code"`
 	Message string `json:"msg"`

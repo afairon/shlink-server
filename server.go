@@ -46,6 +46,7 @@ func initializeRoutes() *chi.Mux {
 
 	// Endpoints
 	r.Get("/", web.Index)
+	r.Get("/favicon.ico", handlers.Favicon)
 	r.Get("/robots.txt", handlers.Robots())
 	r.Get("/{id}", handlers.RedirectURL)
 
