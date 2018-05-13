@@ -1,9 +1,10 @@
 package models
 
 import (
-	"shlink-server/pkg/genid"
-	"shlink-server/utils"
 	"time"
+
+	"github.com/afairon/shlink-server/pkg/genid"
+	"github.com/afairon/shlink-server/utils"
 
 	"github.com/globalsign/mgo/bson"
 )
@@ -13,6 +14,7 @@ import (
 // store url(s).
 //go:generate $GOPATH/bin/ffjson $GOFILE
 type URL struct {
+	Status    int        `bson:",omitempty" json:"status"`
 	Hash      string     `bson:"hash" json:"-"`
 	ID        string     `bson:"id" json:"id,omitempty"`
 	TargetURL string     `bson:",omitempty" json:"targeturl,omitempty"`

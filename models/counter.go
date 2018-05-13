@@ -1,7 +1,7 @@
 package models
 
 import (
-	"shlink-server/utils"
+	"github.com/afairon/shlink-server/utils"
 
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"

@@ -1,7 +1,7 @@
 DIR := bin
 BIN := shlink
 VERSION := v1.0.1-dev
-PLATFORMS := darwin linux freebsd windows
+PLATFORMS := darwin linux freebsd openbsd windows
 os = $(word 1, $@)
 
 GOVERSION := `go version | cut -d ' ' -f 3`
@@ -35,7 +35,7 @@ test: fmt
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): fmt vet generate
-	GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -extldflags -lm -X main.version=$(VERSION) -X main.platform=$(os) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o $(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
+	cd cmd; GOOS=$(os) GOARCH=$(ARCH) go build -ldflags "-s -w -extldflags -lm -X main.version=$(VERSION) -X main.platform=$(os) -X main.goVersion=$(GOVERSION) -X main.goPlatform=$(GOPLATFORM)" -o ../$(DIR)/$(ARCH)/$(BIN)-$(VERSION)-$(os)-$(ARCH)
 
 .PHONY: clean
 clean:

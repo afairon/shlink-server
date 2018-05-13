@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"net/http"
-	"shlink-server/models"
+
+	"github.com/afairon/shlink-server/models"
 
 	json "github.com/pquerna/ffjson/ffjson"
 )

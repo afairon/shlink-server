@@ -1,9 +1,10 @@
-package cmd
+package main
 
 import (
 	"fmt"
 	"os"
-	"shlink-server/utils"
+
+	"github.com/afairon/shlink-server/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -30,53 +31,26 @@ var (
 	// Start will start http server.
 	Start bool
 
-	// Version will print information about binary.
-	Version bool
-
 	// Verbose will enable go-chi verbose mode.
 	Verbose bool
+
+	// version is the server version.
+	version string
+
+	// platform is the server platform.
+	platform string
+
+	// goVersion is the server compiled go version.
+	goVersion string
+
+	// goPlatform is the server compiled go platform.
+	goPlatform string
 )
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "shlink",
 	Short: Logo + copyrights,
-}
-
-var server = &cobra.Command{
-	Use:   "server",
-	Short: "Start shlink http server",
-	Run: func(cmd *cobra.Command, args []string) {
-		Start = true
-	},
-}
-
-var version = &cobra.Command{
-	Use:   "version",
-	Short: "Shows binary version",
-	Run: func(cmd *cobra.Command, args []string) {
-		Version = true
-	},
-}
-
-var config = &cobra.Command{
-	Use:   "config",
-	Short: "Shows config",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("[Database]")
-		fmt.Printf("Host: %s\n", utils.Conf.Database.Host)
-		fmt.Printf("Port: %s\n", utils.Conf.Database.Port)
-		fmt.Printf("DB Name: %s\n", utils.Conf.Database.DB)
-		fmt.Println("[Log]")
-		fmt.Printf("Log Name: %s\n", utils.Conf.Log.Filename)
-		fmt.Printf("Max Size: %d\n", utils.Conf.Log.MaxSize)
-		fmt.Printf("Max Backups: %d\n", utils.Conf.Log.MaxBackups)
-		fmt.Printf("Max Age: %d\n", utils.Conf.Log.MaxAge)
-		fmt.Println("[Server]")
-		fmt.Printf("Host: %s\n", utils.Conf.Server.Host)
-		fmt.Printf("Port: %s\n", utils.Conf.Server.Port)
-		fmt.Printf("Base: %s\n", utils.Conf.Server.Base)
-	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -89,11 +63,16 @@ func Execute() {
 }
 
 func init() {
-	server.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Enable verbose")
+	cmdServer.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "Enable verbose")
 
 	RootCmd.PersistentFlags().BoolVar(&NoBanner, "no-banner", false, "Don't display banner")
 
-	RootCmd.AddCommand(server)
-	RootCmd.AddCommand(version)
+	RootCmd.AddCommand(cmdServer)
+	RootCmd.AddCommand(cmdVersion)
 	RootCmd.AddCommand(config)
+}
+
+func main() {
+	utils.Conf.ReadConfig()
+	Execute()
 }

@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-chi/chi"
 
-	"shlink-server/models"
-	"shlink-server/utils"
+	"github.com/afairon/shlink-server/models"
+	"github.com/afairon/shlink-server/utils"
 )
 
 // Generate handles the creation of shorten url.
